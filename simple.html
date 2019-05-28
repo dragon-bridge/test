@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+
+    <title>Unsupported browser</title>
+    <style>
+        html {
+            font-size: 16px;
+        }
+
+        table, td, th {
+            border: 1px solid black;
+            border-collapse: collapse;
+
+        }
+
+        td, th {
+            padding: 3px;
+        }
+
+        .centerTd {
+            text-align: center;
+        }
+
+        a {
+            font-weight: bold;
+            color: #007bff;
+        }
+
+        button {
+            background-color: #666;
+            border: none;
+            color: white;
+            width: 35px;
+            text-align: center;
+            display: inline-block;
+            font-size: 16px;
+        }
+
+        button:hover {
+            background-color: #fff;
+            color: #222;
+        }
+
+        .selected {
+            background-color: #fff;
+            color: #222;
+            font-weight: bold;
+        }
+    </style>
+
+</head>
+
+
+<body>
+Używasz niewspieranej przeglądarki. Prosimy, rozważ jej <a href="https://www.mozilla.org/en-US/firefox/new/">zmianę</a>
+lub aktualizację. <br>
+<table style="float: left;">
+    <thead>
+    <tr>
+        <th scope="col" class="align-middle">Place</th>
+        <th scope="col" class="align-middle">Pair</th>
+        <th scope="col" class="align-middle">Players</th>
+        <th scope="col" class="align-middle text-right">Score</th>
+        <th scope="col" class="align-middle text-right">PKL</th>
+
+    </tr>
+    </thead>
+    <tbody id="rBody">
+    </tbody>
+</table>
+<div style="float: left; margin-left: 5px;">
+    <div id="nBody" class="row">
+    </div>
+    <table>
+        <tbody id="dBody"></tbody>
+    </table>
+    <table>
+        <thead>
+        <tr>
+            <th scope="col" class="align-middle">NS</th>
+            <th scope="col" class="align-middle">EW</th>
+            <th scope="col" class="align-middle">Contr</th>
+            <th scope="col" class="align-middle">Dec</th>
+            <th scope="col" class="align-middle">Lead</th>
+            <th scope="col" class="align-middle">Tr</th>
+            <th scope="col" class="align-middle">Score</th>
+            <th scope="col" class="align-middle">NS</th>
+            <th scope="col" class="align-middle">EW</th>
+        </tr>
+        </thead>
+        <tbody id="rrBody">
+        </tbody>
+    </table>
+</div>
+<div id="history" style="float: left;  margin-left: 5px;">
+    <table>
+        <thead>
+        <h1 id="historyPair"></h1>
+        <tr>
+            <th scope="col" class="align-middle">Round</th>
+            <th scope="col" class="align-middle">Opponents</th>
+            <th scope="col" class="align-middle">Board</th>
+            <th scope="col" class="align-middle">Line
+            <th scope="col" class="align-middle">Contract</th>
+            <th scope="col" class="align-middle">Declarer</th>
+            <th scope="col" class="align-middle">Lead</th>
+            <th scope="col" class="align-middle">Tricks</th>
+            <th scope="col" class="align-middle">Score</th>
+            <th scope="col" class="align-middle">Result</th>
+        </tr>
+        </thead>
+        <tbody id="hBody">
+        </tbody>
+    </table>
+</div>
+<div style="clear: both">
+Stronę przygotował <b>Jeremiasz Mazur</b>.
+</div>
+<script
+        src="https://code.jquery.com/jquery-2.2.4.min.js"
+        integrity="sha256-BbhdlvQf/xTY9gja0Dq3HiwQF8LaCRTXxZKRutelT44="
+        crossorigin="anonymous"></script>
+<script src="bowser.min.js"></script>
+<script>
+    function doesExist(path, replacement) {
+        var x;
+        if (path || path === 0) {
+            x = path;
+        }
+        else {
+            x = replacement;
+        }
+        return x;
+    }
+
+    var BoardNumbers;
+    var xobjS = new XMLHttpRequest();
+    xobjS.open('GET', './settings.json', true);
+    xobjS.onreadystatechange = function () {
+        if (xobjS.readyState == 4 && xobjS.status == "200") {
+            var settings = JSON.parse(xobjS.responseText);
+            if (settings.LiveResults) {
+                setTimeout(
+                    function () {
+                        location.reload();
+                    },
+                    1000 * settings.RefreshEverySeconds
+                );
+            }
+            BoardNumbers = settings.BoardNumers;
+            GetB(1);
+        }
+    };
+    xobjS.send(null);
+
+
+    var xobjR = new XMLHttpRequest();
+    xobjR.open('GET', './results.json', true);
+    xobjR.onreadystatechange = function () {
+        if (xobjR.readyState == 4 && xobjR.status == "200") {
+            var results = JSON.parse(xobjR.responseText).Results;
+            var i;
+            var content = "";
+            for (i = 0; i < results.length; i++) {
+                var participant = results[i].Participant;
+                var player1 = participant._person1, player2 = participant._person2;
+                var names = player1._firstName + " " + player1._lastName + "<br>" + player2._firstName + " " + player2._lastName;
+                content +=
+                    '<tr><td class="centerTd">' + (i + 1).toString() +
+                    '</td><td class="centerTd">' + '<div class="partIds" id="' + participant.Number + '"' + 'id="part">' + participant.Number + '</div>' +
+                    '</td><td>' + names +
+                    '</td><td class="centerTd">' + (Math.round(results[i].Result._pointsDecimal * 10000) / 10000).toFixed(2).toString() +
+                    '</td><td class="centerTd">' + results[i].Reward._classificationPoints +
+                    '</td></tr>';
+            }
+            document.getElementById("rBody").innerHTML = content;
+        }
+    };
+    xobjR.send(null);
+
+    var xobjD = new XMLHttpRequest();
+    var SelectedBoard = 1;
+
+
+    function GetB(selectedBoard) {
+        GetB1(selectedBoard);
+        GetB2(selectedBoard);
+        setSelectedBoard(selectedBoard);
+    }
+
+    function setSelectedBoard(selectedBoard) {
+        SelectedBoard = selectedBoard;
+        var content = "";
+        var boardCount = BoardNumbers.length;
+        var inLine = 8;
+        var pages = Math.floor((boardCount - 1) / (inLine + 1)) + 1;
+        var offset;
+
+        if (pages === 1 || selectedBoard <= inLine / 2)
+            offset = 0;
+        else if (selectedBoard >= boardCount - inLine / 2)
+            offset = boardCount - inLine - 1;
+        else
+            offset = Math.floor(selectedBoard - 1 - inLine / 2);
+
+        selected = selectedBoard;
+
+        for (var i = 0; i < inLine + 1; i++) {
+            var boardNo = offset + i + 1;
+            if (boardNo > boardCount)
+                break;
+            if (boardNo !== selectedBoard) {
+                content += '<div style="display: table-cell; width: 35px;"><button onclick="GetB(this.innerHTML);">' +
+                    boardNo +
+                    '</button></div>';
+            } else {
+                content +=
+                    '<div style="display: table-cell; width: 35px;"><button onclick="GetB(this.innerHTML);"class="selected">' +
+                    boardNo +
+                    '</button></div>';
+            }
+        }
+        document.getElementById("nBody").innerHTML = content;
+    }
+
+    function GetB1(selectedBoard) {
+        xobjD.open('GET', './d' + selectedBoard + '-0.json', true);
+        xobjD.onreadystatechange = function () {
+            var content = "";
+            var dealer = ['W', 'N', 'E', 'S'];
+            if (xobjD.readyState == 4 && xobjD.status == "200") {
+                distribution = JSON.parse(xobjD.responseText);
+                content = '<tr><td></td><td>' +
+                    '<b>N</b><br>' +
+                    '\u2660' +
+                    doesExist(distribution._handRecord.HandN.Spades, '--') +
+                    '<br>' +
+                    '\u2665' +
+                    doesExist(distribution._handRecord.HandN.Hearts, '--') +
+                    '<br>' +
+                    '\u2666' +
+                    doesExist(distribution._handRecord.HandN.Diamonds, '--') +
+                    '<br>' +
+                    '\u2663' +
+                    doesExist(distribution._handRecord.HandN.Clubs, '--') +
+                    '</td><td></td></tr>';
+                content += '<tr><td>' +
+                    '<b>W</b><br>' +
+                    '\u2660' +
+                    doesExist(distribution._handRecord.HandW.Hearts, '--') +
+                    '<br>' +
+                    '\u2665' +
+                    doesExist(distribution._handRecord.HandW.Hearts, '--') +
+                    '<br>' +
+                    '\u2666' +
+                    doesExist(distribution._handRecord.HandW.Diamonds, '--') +
+                    '<br>' +
+                    '\u2663' +
+                    doesExist(distribution._handRecord.HandW.Clubs, '--') +
+                    '</td>';
+                content += '<td>' +
+                    'board: ' +
+                    selectedBoard +
+                    '<br>' +
+                    'dealer: ' +
+                    dealer[selectedBoard % 4] +
+                    '</td>';
+                content += '<td>' +
+                    '<b>E</b><br>' +
+                    '\u2660' +
+                    doesExist(distribution._handRecord.HandE.Spades, '--') +
+                    '<br>' +
+                    '\u2665' +
+                    doesExist(distribution._handRecord.HandE.Hearts, '--') +
+                    '<br>' +
+                    '\u2666' +
+                    doesExist(distribution._handRecord.HandE.Diamonds, '--') +
+                    '<br>' +
+                    '\u2663' +
+                    doesExist(distribution._handRecord.HandE.Clubs, '--') +
+                    '</td></tr>';
+                content += '<tr><td></td><td>' +
+                    '<b>S</b><br>' +
+                    '\u2660' +
+                    doesExist(distribution._handRecord.HandS.Spades, '--') +
+                    '<br>' +
+                    '\u2665' +
+                    doesExist(distribution._handRecord.HandS.Hearts, '--') +
+                    '<br>' +
+                    '\u2666' +
+                    doesExist(distribution._handRecord.HandS.Diamonds, '--') +
+                    '<br>' +
+                    '\u2663' +
+                    doesExist(distribution._handRecord.HandS.Clubs, '--') +
+                    '</td><td></td></tr>';
+            }
+            document.getElementById("dBody").innerHTML = content;
+        };
+        xobjD.send(null);
+
+    }
+
+    var xobjB = new XMLHttpRequest();
+
+    cards = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'];
+    suits = ['\u2660', '\u2666', '\u2663', '\u2665', 'NT'];
+    declarer = ['N', 'S', 'W', 'E'];
+
+    function GetB2(selectedBoard) {
+        xobjB.open('GET', './sg' + selectedBoard + '-0.json', true);
+        xobjB.onreadystatechange = function () {
+            if (xobjB.readyState == 4 && xobjB.status == "200") {
+                var scores = JSON.parse(xobjB.responseText);
+                scores = scores.Scores;
+                var content = "";
+                var overTricks;
+                for (var i = 0; i < scores.length; i++) {
+                    var temp = doesExist(scores[i].NsScore.Overtricks, '---');
+                    if (temp !== 0) {
+                        overTricks = doesExist(scores[i].NsScore.Overtricks, '---');
+
+                    }
+                    else {
+                        overTricks = '=';
+                    }
+                    var lead;
+                    if (scores[i].NsScore.Lead != null) {
+                        lead = doesExist(suits[scores[i].NsScore.Lead.CardColor], '-') +
+                            doesExist(cards[scores[i].NsScore.Lead.CardHeight], '-');
+                    }
+                    else {
+                        lead = '-';
+                    }
+
+                    content +=
+                        '<tr><td class="centerTd">' + scores[i].ParticipantsNs[0].Number +
+                        '</td><td class="centerTd">' + scores[i].ParticipantsEw[0].Number +
+                        '</td><td class="centerTd">' + doesExist(scores[i].NsScore.Height , '-') + '&nbsp;' + doesExist(suits[scores[i].NsScore.Denomination], '-') +
+                        '</td><td class="centerTd">' + doesExist(declarer[scores[i].NsScore.Declarer], '-') +
+                        '</td><td class="centerTd">' + lead +
+                        '</td><td style="text-align: right">' + overTricks +
+                        '</td><td style="text-align: right">' + doesExist(scores[i].NsScore.Score, '-----') +
+                        '</td><td style="text-align: right">' + (Math.round(scores[i].EwResult * 100) / 100) +
+                        '</td><td style="text-align: right">' + (Math.round(scores[i].NsResult * 100) / 100) +
+                        '</td></>';
+                }
+                document.getElementById("rrBody").innerHTML = content;
+            }
+        };
+        xobjB.send(null);
+    }
+
+    xobjH = new XMLHttpRequest();
+
+    function GetH(selectedPair) {
+        xobjH.open('GET', './h' + selectedPair + '.json', true);
+        xobjH.onreadystatechange = function () {
+            if (xobjH.readyState == 4 && xobjH.status == "200") {
+                var history = JSON.parse(xobjH.responseText);
+                var content = "";
+                for (var i = 0; i < history.Rounds.length; i++) {
+                    for (var x = 0; x < 3; x++) {
+
+                        var declarers = ["N", "S", "W", "E"];
+                        var declarer = declarers[history.Rounds[i].Scores[x].Score.Declarer];
+                        content +=
+                            '<tr><td rowspan=' + '"' + (history.Rounds[i].Scores.length) + '"' + 'class="centerTd">' + (i + 1) +
+                            '</td><td rowspan=' + '"' + (history.Rounds[i].Scores.length) + '"' + 'class="centerTd">' + history.Rounds[i].Opponents[0].Number + ":" + history.Rounds[i].Opponents[0].Name +
+                            '</td>';
+                        for (x = 0; x < history.Rounds[i].Scores.length; x++) {
+                            var temp = doesExist(history.Rounds[i].Scores[x].Score.Overtricks, '---');
+                            var overTricks;
+                            if (temp !== 0) {
+                                overTricks = doesExist(history.Rounds[i].Scores[x].Score.Overtricks, '---');
+
+                            }
+                            else {
+                                overTricks = '=';
+                            }
+                            var lead;
+                            if (history.Rounds[i].Scores[x].Score.Lead != null) {
+                                lead = cards[history.Rounds[i].Scores[x].Score.Lead.CardHeight] +
+                                    suits[history.Rounds[i].Scores[x].Score.Lead.CardColor];
+                            }
+                            else {
+                                lead = '-';
+                            }
+                            content +=
+                                '<td class="centerTd">' +
+                                history.Rounds[i].Scores[x].Board +
+                                '</td><td class="centerTd">' +
+                                history.Rounds[i].Scores[x].Line +
+                                '</td><td class="centerTd">' +
+                                doesExist(history.Rounds[i].Scores[x].Score.Height, '--') +
+                                '&nbsp;' +
+                                doesExist(suits[history.Rounds[i].Scores[x].Score.Denomination], '--') +
+                                '</td><td class="centerTd">' +
+                                doesExist(declarer, '---') +
+                                '</td><td class="centerTd">' +
+                                lead +
+                                '</td><td class="centerTd">' +
+                                overTricks +
+                                '</td><td class="centerTd">' +
+                                doesExist(history.Rounds[i].Scores[x].Score.Score, '-----') +
+                                '</td><td class="centerTd">' +
+                                (Math.round(doesExist(history.Rounds[i].Scores[x].Result, '-----') * 100) / 100) +
+                                '</td></tr>';
+                        }
+                    }
+                    document.getElementById("hBody").innerHTML = content;
+                }
+            }
+        };
+        xobjH.send(null);
+    }
+
+    $(document).ready(function () {
+        $(document).on("click", ".partIds", function (event) {
+            GetH(event.target.id);
+        });
+    });
+
+</script>
+</body>
+</html>
